@@ -155,6 +155,19 @@ input:focus, select:focus { outline: none; border-color: var(--primary); }
   </div>
 </div>
 
+<!-- 预计停止时间弹窗 -->
+<div id="endTimeModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center;">
+  <div class="card" style="width:360px;">
+    <h2>预计接单到几点？</h2>
+    <div class="form-group"><input id="endTimeInput" type="time"></div>
+    <div class="form-group"><label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;"><input type="checkbox" id="noEndTime" onchange="document.getElementById('endTimeInput').disabled=this.checked"> 还在蹲，不确定结束时间</label></div>
+    <div class="flex">
+      <button class="btn btn-outline btn-block" onclick="hideEndTimeModal()">取消</button>
+      <button class="btn btn-success btn-block" onclick="confirmGoOnline()">确认上线</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ========== 全局状态 ==========
 let currentRole = sessionStorage.getItem('admin_auth') === '1' ? 'admin' : 'worker';
@@ -242,7 +255,36 @@ function workerLogout() {
 
 // ========== 打手操作 ==========
 async function toggleOnline() {
-  await api('/api/workers/toggle-online', { method: 'POST', body: JSON.stringify({ name: currentWorker }) });
+  // 如果当前已在线，直接下线
+  if (myStatus && myStatus.online) {
+    await api('/api/workers/toggle-online', { method: 'POST', body: JSON.stringify({ name: currentWorker }) });
+    refresh();
+    return;
+  }
+  // 上线前弹出时间选择
+  document.getElementById('endTimeModal').style.display = 'flex';
+  document.getElementById('endTimeInput').value = '';
+  document.getElementById('noEndTime').checked = false;
+  document.getElementById('endTimeInput').disabled = false;
+}
+
+function hideEndTimeModal() {
+  document.getElementById('endTimeModal').style.display = 'none';
+}
+
+async function confirmGoOnline() {
+  const noEnd = document.getElementById('noEndTime').checked;
+  const timeStr = document.getElementById('endTimeInput').value;
+  let endTime = null;
+  if (!noEnd && timeStr) {
+    // 把 HH:MM 转成今天的 timestamp
+    const [h, m] = timeStr.split(':');
+    const now = new Date();
+    now.setHours(parseInt(h), parseInt(m), 0, 0);
+    endTime = now.getTime();
+  }
+  hideEndTimeModal();
+  await api('/api/workers/toggle-online', { method: 'POST', body: JSON.stringify({ name: currentWorker, end_time: endTime }) });
   refresh();
 }
 
@@ -347,6 +389,12 @@ async function deleteWorker(name) {
 // ========== 渲染 ==========
 function esc(str) { if (!str) return ''; const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
 
+function formatEndTime(timestamp) {
+  if (!timestamp) return '';
+  const d = new Date(timestamp);
+  return d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0');
+}
+
 function renderAll() {
   // 面板显隐
   document.getElementById('adminPanel').style.display = currentRole === 'admin' ? 'block' : 'none';
@@ -396,10 +444,11 @@ function renderAdmin() {
   } else {
     onlineDiv.innerHTML = online.map((w, i) => {
       const posClass = i === 0 ? 'p1' : i === 1 ? 'p2' : i === 2 ? 'p3' : '';
+      const endInfo = w.end_time ? '<span style="font-size:11px;color:var(--muted);margin-left:8px;">到 ' + formatEndTime(w.end_time) + '</span>' : '';
       return '<div class="worker-row">' +
         '<span class="pos ' + posClass + '">#' + (i + 1) + '</span>' +
         '<div style="flex:1;">' +
-        '<span style="font-weight:600;">' + esc(w.name) + '</span>' +
+        '<span style="font-weight:600;">' + esc(w.name) + '</span>' + endInfo +
         renderTags(w.tags) +
         '</div>' +
         '<button class="btn btn-primary" onclick="dispatchWorker(\'' + esc(w.name) + '\')">派单</button>' +
@@ -469,10 +518,12 @@ function renderWorker() {
   } else {
     // 在线排队
     const pos = online.findIndex(w => w.name === currentWorker) + 1;
+    const endStr = myself && myself.end_time ? formatEndTime(myself.end_time) : '';
     statusDiv.innerHTML =
       '<div class="icon">⏳</div>' +
       '<div class="status-text" style="color:var(--success);">排队中 · 第 ' + pos + ' 位</div>' +
       '<div class="hint">等待管理员派单</div>' +
+      (endStr ? '<div style="margin-top:8px;font-size:12px;color:var(--muted);">预计接单到 ' + endStr + '</div>' : '<div style="margin-top:8px;font-size:12px;color:var(--muted);">不确定结束时间</div>') +
       '<button class="btn btn-outline btn-lg" style="margin-top:16px;" onclick="toggleOnline()">下线</button>';
   }
 
@@ -489,10 +540,11 @@ function renderWorker() {
       const isMe = w.name === currentWorker;
       const posClass = i === 0 ? 'p1' : i === 1 ? 'p2' : i === 2 ? 'p3' : '';
       const tagBadges = (w.tags && w.tags.length > 0) ? '<span style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">' + w.tags.map(t => '<span style="background:rgba(59,130,246,.12);color:var(--primary);padding:1px 8px;border-radius:10px;font-size:11px;font-weight:600;">' + esc(t) + '</span>').join('') + '</span>' : '';
+      const endInfo = w.end_time ? '<span style="font-size:11px;color:var(--muted);margin-left:8px;">到 ' + formatEndTime(w.end_time) + '</span>' : '';
       return '<div class="worker-row' + (isMe ? '" style="border-color:var(--success);"' : '') + '' +
         '<span class="pos ' + posClass + '">#' + (i + 1) + '</span>' +
         '<div style="flex:1;">' +
-        '<span class="name" style="display:block;">' + esc(w.name) + '</span>' +
+        '<span class="name" style="display:block;">' + esc(w.name) + endInfo + '</span>' +
         tagBadges +
         '</div>' +
         (isMe ? '<span class="badge badge-green">你</span>' : '') +

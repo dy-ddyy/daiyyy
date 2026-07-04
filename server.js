@@ -86,7 +86,7 @@ app.post('/api/workers/tags', (req, res) => {
 
 // ==================== 打手上下线 ====================
 app.post('/api/workers/toggle-online', (req, res) => {
-  const { name } = req.body;
+  const { name, end_time } = req.body;
   if (!name) return res.status(400).json({ error: '请提供打手名' });
 
   const workers = readJSON(WORKERS_FILE);
@@ -97,12 +97,14 @@ app.post('/api/workers/toggle-online', (req, res) => {
   if (w.online) {
     w.online_since = Date.now();
     w.busy = false;
+    w.end_time = end_time || null;
   } else {
     w.online_since = 0;
     w.busy = false;
+    w.end_time = null;
   }
   writeJSON(WORKERS_FILE, workers);
-  res.json({ name: w.name, online: w.online, busy: w.busy });
+  res.json({ name: w.name, online: w.online, busy: w.busy, end_time: w.end_time || null });
 });
 
 // ==================== 打手完成订单 ====================
@@ -176,7 +178,8 @@ app.get('/api/workers/status', (req, res) => {
     online: w.online || false,
     busy: w.busy || false,
     online_since: w.online_since || 0,
-    tags: w.tags || []
+    tags: w.tags || [],
+    end_time: w.end_time || null
   }));
   list.sort((a, b) => {
     if (a.online && !b.online) return -1;
