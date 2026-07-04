@@ -4,9 +4,20 @@ const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// ========== 管理员密码验证 ==========
+app.post('/api/auth', (req, res) => {
+  const { password } = req.body;
+  if (password === ADMIN_PASSWORD) {
+    res.json({ success: true });
+  } else {
+    res.status(403).json({ error: '密码错误' });
+  }
+});
 
 // ========== 数据存储（JSON 文件） ==========
 // Railway 上 /data 目录是持久化的，本地就用当前目录

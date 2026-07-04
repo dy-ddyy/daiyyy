@@ -149,16 +149,42 @@
   .price-input-wrapper { position: relative; }
   .price-input-wrapper::before { content: '¥'; position: absolute; left: 12px; top: 10px; color: var(--muted); z-index: 1; }
   .price-input-wrapper input { padding-left: 24px !important; }
+
+  /* 密码弹窗 */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000;
+  }
+  .modal-box {
+    background: var(--card); padding: 32px; border-radius: 16px;
+    border: 1px solid var(--border); width: 360px; max-width: 90vw;
+  }
+  .modal-box h3 { color: #fff; margin-bottom: 16px; }
+  .modal-box input {
+    width: 100%; padding: 10px 12px; border-radius: 8px;
+    border: 1px solid var(--border); background: #0f172a; color: #fff;
+    font-size: 16px; outline: none; margin-bottom: 12px;
+  }
+  .modal-box input:focus { border-color: var(--primary); }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+  /* 底部登录入口 */
+  .footer-login {
+    text-align: center; padding: 24px; font-size: 13px;
+  }
+  .footer-login a {
+    color: var(--muted); text-decoration: none; cursor: pointer;
+    transition: color 0.2s;
+  }
+  .footer-login a:hover { color: var(--primary); }
 </style>
 </head>
 <body>
 <div class="container">
   <div class="header">
     <h1>🎮 <span>派单</span>排队系统</h1>
-    <div class="role-switch">
-      <button id="btnAdmin" class="active" onclick="switchRole('admin')">管理端</button>
-      <button id="btnWorker" onclick="switchRole('worker')">打手端</button>
-    </div>
+    <button class="btn btn-sm btn-outline" id="btnLogout" style="display:none;" onclick="logout()">退出管理</button>
   </div>
 
   <!-- ==================== 管理端 ==================== -->
@@ -282,13 +308,30 @@
       </div>
     </div>
   </div>
+
+  <!-- 底部管理入口 -->
+  <div class="footer-login" id="footerLogin">
+    <a onclick="showLogin()">管理登录</a>
+  </div>
+
+  <!-- 密码弹窗 -->
+  <div class="modal-overlay" id="loginModal" style="display:none;">
+    <div class="modal-box">
+      <h3>管理员登录</h3>
+      <input type="password" id="adminPassword" placeholder="请输入管理密码" onkeydown="if(event.key==='Enter')doLogin()">
+      <div class="modal-actions">
+        <button class="btn btn-outline btn-sm" onclick="hideLogin()">取消</button>
+        <button class="btn btn-primary btn-sm" onclick="doLogin()">登录</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
 // ========== 全局状态 ==========
 let orders = [];
 let workers = [];
-let currentRole = 'admin';
+let currentRole = sessionStorage.getItem('admin_auth') === '1' ? 'admin' : 'worker';
 let currentWorker = '';
 let currentFilter = 'all';
 
@@ -333,14 +376,44 @@ function toast(msg, type = 'success') {
   setTimeout(() => el.remove(), 2000);
 }
 
-// ========== 角色切换 ==========
-function switchRole(role) {
-  currentRole = role;
-  document.getElementById('btnAdmin').classList.toggle('active', role === 'admin');
-  document.getElementById('btnWorker').classList.toggle('active', role === 'worker');
-  document.getElementById('adminPanel').style.display = role === 'admin' ? 'block' : 'none';
-  document.getElementById('workerPanel').style.display = role === 'worker' ? 'block' : 'none';
+// ========== 管理员登录/登出 ==========
+function showLogin() {
+  document.getElementById('loginModal').style.display = 'flex';
+  document.getElementById('adminPassword').focus();
+  document.getElementById('adminPassword').value = '';
+}
+
+function hideLogin() {
+  document.getElementById('loginModal').style.display = 'none';
+}
+
+async function doLogin() {
+  const pw = document.getElementById('adminPassword').value;
+  if (!pw) { toast('请输入密码', 'error'); return; }
+  try {
+    await api('/api/auth', { method: 'POST', body: JSON.stringify({ password: pw }) });
+    sessionStorage.setItem('admin_auth', '1');
+    currentRole = 'admin';
+    hideLogin();
+    toast('登录成功，进入管理端');
+    renderAll();
+  } catch (e) {
+    // api() 已经弹了 toast
+  }
+}
+
+function logout() {
+  sessionStorage.removeItem('admin_auth');
+  currentRole = 'worker';
+  toast('已退出管理端');
   renderAll();
+}
+
+function switchView() {
+  document.getElementById('adminPanel').style.display = currentRole === 'admin' ? 'block' : 'none';
+  document.getElementById('workerPanel').style.display = currentRole === 'admin' ? 'none' : 'block';
+  document.getElementById('btnLogout').style.display = currentRole === 'admin' ? 'inline-block' : 'none';
+  document.getElementById('footerLogin').style.display = currentRole === 'admin' ? 'none' : 'block';
 }
 
 // ========== 订单操作 ==========
@@ -445,6 +518,7 @@ function setFilter(f) {
 
 // ========== 渲染 ==========
 function renderAll() {
+  switchView();
   renderAdmin();
   renderWorker();
 }
