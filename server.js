@@ -60,7 +60,6 @@ app.post('/api/workers/login', (req, res) => {
   if (!w) return res.status(401).json({ error: '打手不存在' });
   if (w.password_hash !== hash(password)) return res.status(401).json({ error: '密码错误' });
 
-  // 返回打手信息和标签
   res.json({ name: w.name, tags: w.tags || [] });
 });
 
@@ -85,7 +84,7 @@ app.post('/api/workers/tags', (req, res) => {
   res.json({ name: w.name, tags: w.tags });
 });
 
-// ==================== 打手上下线（加入排队/退出排队） ====================
+// ==================== 打手上下线 ====================
 app.post('/api/workers/toggle-online', (req, res) => {
   const { name } = req.body;
   if (!name) return res.status(400).json({ error: '请提供打手名' });
@@ -106,7 +105,7 @@ app.post('/api/workers/toggle-online', (req, res) => {
   res.json({ name: w.name, online: w.online, busy: w.busy });
 });
 
-// ==================== 打手完成订单（回到排队状态） ====================
+// ==================== 打手完成订单 ====================
 app.post('/api/workers/complete', (req, res) => {
   const { name } = req.body;
   if (!name) return res.status(400).json({ error: '请提供打手名' });
@@ -123,7 +122,7 @@ app.post('/api/workers/complete', (req, res) => {
   res.json({ name: w.name, online: w.online, busy: w.busy });
 });
 
-// ==================== 管理员派单（指定打手） ====================
+// ==================== 管理员派单 ====================
 app.post('/api/workers/dispatch', (req, res) => {
   const { name } = req.body;
   if (!name) return res.status(400).json({ error: '请提供打手名' });
@@ -179,7 +178,6 @@ app.get('/api/workers/status', (req, res) => {
     online_since: w.online_since || 0,
     tags: w.tags || []
   }));
-  // 排序：在线的按上线时间排前面，忙碌的排后面
   list.sort((a, b) => {
     if (a.online && !b.online) return -1;
     if (!a.online && b.online) return 1;

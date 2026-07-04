@@ -1,0 +1,5 @@
+[build]
+builder = "nixpacks"
+
+[deploy]
+volumes = [{ source = "worker-data", target = "/app/data" }]
