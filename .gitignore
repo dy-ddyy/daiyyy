@@ -2,3 +2,5 @@ node_modules/
 orders.json
 workers.json
 .DS_Store
+ngrok.exe
+ngrok.zip
