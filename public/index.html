@@ -3,368 +3,174 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>派单排队系统</title>
+<title>排队系统</title>
 <style>
-  :root {
-    --bg: #0f172a;
-    --card: #1e293b;
-    --border: #334155;
-    --text: #e2e8f0;
-    --muted: #94a3b8;
-    --primary: #3b82f6;
-    --success: #22c55e;
-    --warning: #f59e0b;
-    --danger: #ef4444;
-    --purple: #8b5cf6;
-  }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-  }
-  .container { max-width: 1000px; margin: 0 auto; padding: 20px; }
-
-  .header {
-    display: flex; align-items: center; justify-content: space-between;
-    flex-wrap: wrap; gap: 12px; margin-bottom: 24px;
-    padding: 20px; background: var(--card);
-    border-radius: 16px; border: 1px solid var(--border);
-  }
-  .header h1 { font-size: 24px; color: #fff; }
-  .header h1 span { color: var(--primary); }
-  .role-switch {
-    display: flex; gap: 4px;
-    background: #0f172a; padding: 4px; border-radius: 10px;
-  }
-  .role-switch button {
-    padding: 8px 20px; border: none; border-radius: 8px;
-    cursor: pointer; font-size: 14px; font-weight: 600;
-    background: transparent; color: var(--muted);
-    transition: all 0.2s;
-  }
-  .role-switch button.active { background: var(--primary); color: #fff; }
-
-  /* 状态提示 */
-  .status-bar {
-    display: flex; align-items: center; gap: 8px;
-    margin-bottom: 16px; font-size: 12px; color: var(--muted);
-  }
-  .status-dot { width: 8px; height: 8px; border-radius: 50%; }
-  .status-dot.online { background: var(--success); }
-  .status-dot.offline { background: var(--danger); }
-
-  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 24px; }
-  .stat-card {
-    background: var(--card); border-radius: 12px; padding: 16px;
-    border: 1px solid var(--border);
-  }
-  .stat-card .num { font-size: 32px; font-weight: 700; }
-  .stat-card .label { font-size: 13px; color: var(--muted); margin-top: 4px; }
-
-  .card {
-    background: var(--card); border-radius: 16px;
-    border: 1px solid var(--border); padding: 20px; margin-bottom: 20px;
-  }
-  .card h2 { font-size: 18px; margin-bottom: 16px; color: #fff; }
-
-  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 12px; }
-  .form-group { display: flex; flex-direction: column; gap: 4px; }
-  .form-group label { font-size: 13px; color: var(--muted); }
-  .form-group input, .form-group select, .form-group textarea {
-    padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border);
-    background: #0f172a; color: #fff; font-size: 14px; outline: none;
-    transition: border 0.2s;
-  }
-  .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--primary); }
-
-  .btn {
-    padding: 10px 24px; border: none; border-radius: 8px;
-    cursor: pointer; font-size: 14px; font-weight: 600; transition: all 0.2s;
-  }
-  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  .btn-primary { background: var(--primary); color: #fff; }
-  .btn-primary:hover:not(:disabled) { background: #2563eb; }
-  .btn-success { background: var(--success); color: #fff; }
-  .btn-success:hover:not(:disabled) { background: #16a34a; }
-  .btn-danger { background: var(--danger); color: #fff; }
-  .btn-danger:hover:not(:disabled) { background: #dc2626; }
-  .btn-sm { padding: 6px 14px; font-size: 12px; border-radius: 6px; }
-  .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
-  .btn-outline:hover { background: #1e293b; }
-
-  table { width: 100%; border-collapse: collapse; }
-  thead th {
-    text-align: left; padding: 10px 12px;
-    font-size: 12px; color: var(--muted); text-transform: uppercase;
-    border-bottom: 1px solid var(--border);
-  }
-  tbody td { padding: 12px; border-bottom: 1px solid var(--border); font-size: 14px; }
-  tbody tr:hover { background: rgba(59,130,246,0.05); }
-
-  .badge {
-    display: inline-block; padding: 3px 10px; border-radius: 20px;
-    font-size: 12px; font-weight: 600;
-  }
-  .badge-pending { background: rgba(245,158,11,0.15); color: var(--warning); }
-  .badge-doing { background: rgba(59,130,246,0.15); color: var(--primary); }
-  .badge-done { background: rgba(34,197,94,0.15); color: var(--success); }
-  .badge-cancelled { background: rgba(239,68,68,0.15); color: var(--danger); }
-
-  .worker-select { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
-  .worker-tag {
-    padding: 6px 16px; border-radius: 20px; font-size: 14px; font-weight: 600;
-    background: var(--primary); color: #fff;
-  }
-
-  .empty { text-align: center; padding: 40px 20px; color: var(--muted); }
-  .empty .icon { font-size: 48px; margin-bottom: 12px; }
-
-  .queue-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
-  .queue-item {
-    display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    padding: 14px 16px; background: #0f172a; border-radius: 10px;
-    border: 1px solid var(--border);
-  }
-  .queue-item .info { flex: 1; min-width: 0; }
-  .queue-item .title { font-size: 15px; font-weight: 600; margin-bottom: 2px; }
-  .queue-item .title .seq { color: var(--warning); margin-right: 6px; }
-  .queue-item .meta { font-size: 12px; color: var(--muted); }
-  .queue-item .price { font-size: 18px; font-weight: 700; color: var(--success); white-space: nowrap; }
-
-  .toast {
-    position: fixed; top: 20px; right: 20px; z-index: 999;
-    padding: 12px 24px; border-radius: 10px; font-size: 14px; font-weight: 600;
-    animation: slideIn 0.3s ease;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-  }
-  .toast-success { background: var(--success); color: #000; }
-  .toast-error { background: var(--danger); color: #fff; }
-  @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-
-  .flex { display: flex; gap: 8px; flex-wrap: wrap; }
-  .mt-8 { margin-top: 8px; }
-  .text-muted { color: var(--muted); font-size: 13px; }
-  .price-input-wrapper { position: relative; }
-  .price-input-wrapper::before { content: '¥'; position: absolute; left: 12px; top: 10px; color: var(--muted); z-index: 1; }
-  .price-input-wrapper input { padding-left: 24px !important; }
-
-  /* 密码弹窗 */
-  .modal-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.7);
-    display: flex; align-items: center; justify-content: center;
-    z-index: 1000;
-  }
-  .modal-box {
-    background: var(--card); padding: 32px; border-radius: 16px;
-    border: 1px solid var(--border); width: 360px; max-width: 90vw;
-  }
-  .modal-box h3 { color: #fff; margin-bottom: 16px; }
-  .modal-box input {
-    width: 100%; padding: 10px 12px; border-radius: 8px;
-    border: 1px solid var(--border); background: #0f172a; color: #fff;
-    font-size: 16px; outline: none; margin-bottom: 12px;
-  }
-  .modal-box input:focus { border-color: var(--primary); }
-  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
-
-  /* 底部登录入口 */
-  .footer-login {
-    text-align: center; padding: 24px; font-size: 13px;
-  }
-  .footer-login a {
-    color: var(--muted); text-decoration: none; cursor: pointer;
-    transition: color 0.2s;
-  }
-  .footer-login a:hover { color: var(--primary); }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #0f172a; --bg-card: #1e293b; --text: #e2e8f0; --muted: #94a3b8;
+  --primary: #3b82f6; --success: #22c55e; --danger: #ef4444; --warning: #f59e0b;
+  --border: #334155;
+}
+body { background: var(--bg); color: var(--text); font-family: -apple-system, sans-serif; min-height: 100vh; }
+.container { max-width: 640px; margin: 0 auto; padding: 20px; }
+.card { background: var(--bg-card); border-radius: 12px; padding: 24px; margin-bottom: 16px; border: 1px solid var(--border); }
+h2 { font-size: 18px; margin-bottom: 16px; }
+.btn { padding: 10px 24px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all .2s; }
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover { opacity: .85; }
+.btn-success { background: var(--success); color: #fff; }
+.btn-success:hover { opacity: .85; }
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-danger:hover { opacity: .85; }
+.btn-warning { background: var(--warning); color: #000; }
+.btn-warning:hover { opacity: .85; }
+.btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+.btn-outline:hover { background: var(--bg-card); }
+.btn-lg { padding: 14px 40px; font-size: 16px; }
+.btn-block { display: block; width: 100%; }
+input, select { width: 100%; padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 14px; }
+input:focus, select:focus { outline: none; border-color: var(--primary); }
+.form-group { margin-bottom: 12px; }
+.flex { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.mb { margin-bottom: 16px; }
+.tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+.tab { padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; border: 1px solid var(--border); background: transparent; color: var(--muted); }
+.tab.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+.badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+.badge-green { background: rgba(34,197,94,.15); color: var(--success); }
+.badge-blue { background: rgba(59,130,246,.15); color: var(--primary); }
+.badge-yellow { background: rgba(245,158,11,.15); color: var(--warning); }
+.worker-row { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--bg); border-radius: 10px; margin-bottom: 8px; border: 1px solid var(--border); }
+.worker-row .pos { font-size: 24px; font-weight: 700; width: 36px; text-align: center; }
+.worker-row .pos.p1 { color: var(--warning); }
+.worker-row .pos.p2 { color: #94a3b8; }
+.worker-row .pos.p3 { color: #a16207; }
+.worker-row .name { flex: 1; font-size: 16px; font-weight: 600; }
+.worker-row .status { font-size: 12px; }
+.toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); padding: 12px 24px; border-radius: 8px; font-weight: 600; z-index: 999; animation: fadeIn .3s; }
+.toast-success { background: var(--success); color: #fff; }
+.toast-error { background: var(--danger); color: #fff; }
+@keyframes fadeIn { from { opacity: 0; transform: translateX(-50%) translateY(-10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+.header { text-align: center; padding: 20px 0 8px; }
+.header h1 { font-size: 24px; }
+.header .sub { color: var(--muted); font-size: 13px; margin-top: 4px; }
+#loginModal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 100; align-items: center; justify-content: center; }
+#loginModal .card { width: 360px; }
+.my-status { text-align: center; padding: 20px; }
+.my-status .icon { font-size: 48px; margin-bottom: 12px; }
+.my-status .status-text { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+.my-status .hint { color: var(--muted); font-size: 13px; }
 </style>
 </head>
 <body>
+
+<div class="header">
+  <h1>打手排队系统</h1>
+  <div class="sub">上线排队 → 按序派单 → 完成归队</div>
+</div>
+
 <div class="container">
-  <div class="header">
-    <h1>🎮 <span>派单</span>排队系统</h1>
-    <button class="btn btn-sm btn-outline" id="btnLogout" style="display:none;" onclick="logout()">退出管理</button>
-  </div>
 
-  <!-- ==================== 管理端 ==================== -->
-  <div id="adminPanel">
-    <div class="stats">
-      <div class="stat-card pending"><div class="num" id="statPending">0</div><div class="label">待派发</div></div>
-      <div class="stat-card doing"><div class="num" id="statDoing">0</div><div class="label">进行中</div></div>
-      <div class="stat-card done"><div class="num" id="statDone">0</div><div class="label">已完成</div></div>
-      <div class="stat-card total"><div class="num" id="statTotal">0</div><div class="label">总订单</div></div>
+  <!-- ========== 打手登录/注册 ========== -->
+  <div id="workerLoginPanel" class="card">
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('login')" id="tabLogin">登录</button>
+      <button class="tab" onclick="switchTab('register')" id="tabReg">注册</button>
     </div>
 
-    <div class="card">
-      <h2>📝 录入新订单</h2>
-      <div class="form-grid">
-        <div class="form-group">
-          <label>游戏名称</label>
-          <input id="gameName" placeholder="例：王者荣耀">
-        </div>
-        <div class="form-group">
-          <label>段位 / 要求</label>
-          <input id="rankInfo" placeholder="例：钻石→王者">
-        </div>
-        <div class="form-group">
-          <label>价格</label>
-          <div class="price-input-wrapper">
-            <input id="price" type="number" placeholder="50" min="0" step="0.01">
-          </div>
-        </div>
-        <div class="form-group">
-          <label>客户昵称</label>
-          <input id="customer" placeholder="例：张三">
-        </div>
-      </div>
-      <div class="form-grid" style="margin-top: 4px;">
-        <div class="form-group" style="grid-column: 1 / -1;">
-          <label>备注（区服、账号信息等）</label>
-          <textarea id="notes" rows="2" placeholder="例：微信区、账号xxx密码xxx"></textarea>
-        </div>
-      </div>
-      <div class="flex" style="margin-top: 4px;">
-        <button class="btn btn-primary" onclick="addOrder()">加入排队</button>
-        <button class="btn btn-outline" onclick="clearForm()">清空</button>
-      </div>
+    <div id="loginForm">
+      <div class="form-group"><input id="loginName" placeholder="打手名"></div>
+      <div class="form-group"><input id="loginPass" type="password" placeholder="密码"></div>
+      <button class="btn btn-primary btn-block" onclick="workerLogin()">登录</button>
     </div>
 
-    <div class="card">
-      <h2>📋 全部订单</h2>
-      <div class="flex" style="margin-bottom: 12px;">
-        <button class="btn btn-sm btn-outline" onclick="setFilter('all')" id="filterAll">全部</button>
-        <button class="btn btn-sm btn-outline" onclick="setFilter('pending')" id="filterPending">待派发</button>
-        <button class="btn btn-sm btn-outline" onclick="setFilter('doing')" id="filterDoing">进行中</button>
-        <button class="btn btn-sm btn-outline" onclick="setFilter('done')" id="filterDone">已完成</button>
-        <button class="btn btn-sm btn-outline" onclick="setFilter('cancelled')" id="filterCancelled">已取消</button>
-        <button class="btn btn-sm btn-danger" onclick="clearAll()" style="margin-left: auto;">🗑 清空已完成</button>
-      </div>
-      <div id="orderTableWrap" style="overflow-x: auto">
-        <table>
-          <thead>
-            <tr><th>#</th><th>游戏</th><th>段位要求</th><th>价格</th><th>客户</th><th>打手</th><th>状态</th><th>备注</th><th>时间</th><th>操作</th></tr>
-          </thead>
-          <tbody id="orderTbody"></tbody>
-        </table>
-      </div>
-      <div id="emptyAdmin" class="empty" style="display:none;">
-        <div class="icon">📭</div><div>还没有订单，赶紧录一单吧</div>
-      </div>
+    <div id="regForm" style="display:none;">
+      <div class="form-group"><input id="regName" placeholder="打手名"></div>
+      <div class="form-group"><input id="regPass" type="password" placeholder="密码（至少4位）"></div>
+      <button class="btn btn-success btn-block" onclick="workerRegister()">注册</button>
     </div>
   </div>
 
-  <!-- ==================== 打手端 ==================== -->
-  <div id="workerPanel" style="display:none;">
-    <div class="stats">
-      <div class="stat-card pending"><div class="num" id="wStatPending">0</div><div class="label">可接订单</div></div>
-      <div class="stat-card doing"><div class="num" id="wStatDoing">0</div><div class="label">我的进行中</div></div>
-      <div class="stat-card done"><div class="num" id="wStatDone">0</div><div class="label">我的已完成</div></div>
+  <!-- ========== 打手工作面板 ========== -->
+  <div id="workerWorkPanel" style="display:none;">
+    <!-- 我的状态 -->
+    <div class="card my-status" id="workerMyStatus">
     </div>
 
-    <div class="card">
-      <div class="worker-select">
-        <span>当前打手：</span>
-        <select id="workerName" onchange="saveWorker()">
-          <option value="">-- 选择打手 --</option>
-        </select>
-        <input id="newWorker" placeholder="添加新打手名称" style="padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:#0f172a; color:#fff; width:160px;">
-        <button class="btn btn-sm btn-primary" onclick="addWorker()">添加</button>
-        <span class="worker-tag" id="currentWorkerTag" style="display:none;"></span>
-      </div>
+    <!-- 接单类型 -->
+    <div class="card" id="workerTagsCard" style="display:none;">
+      <h2>我想接的类型</h2>
+      <div class="flex" id="workerTagsList" style="gap:8px;"></div>
     </div>
 
+    <!-- 排队列表 -->
     <div class="card">
-      <h2>📌 可接订单（排队中）</h2>
-      <ul class="queue-list" id="queueList"></ul>
-      <div id="emptyWorker" class="empty">
-        <div class="icon">🎉</div><div>暂无待派发订单，休息一下</div>
-      </div>
+      <h2>当前排队</h2>
+      <div id="queueListView"></div>
     </div>
 
-    <div class="card">
-      <h2>📂 我的订单</h2>
-      <div style="overflow-x: auto">
-        <table>
-          <thead><tr><th>#</th><th>游戏</th><th>段位要求</th><th>价格</th><th>客户</th><th>状态</th><th>时间</th><th>操作</th></tr></thead>
-          <tbody id="myOrdersTbody"></tbody>
-        </table>
-      </div>
-      <div id="emptyMyOrders" class="empty" style="display:none;">
-        <div class="icon">😴</div><div>你还没有接过单</div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>📜 完成记录</h2>
-      <div style="overflow-x: auto">
-        <table>
-          <thead><tr><th>#</th><th>游戏</th><th>段位要求</th><th>价格</th><th>客户</th><th>完成时间</th></tr></thead>
-          <tbody id="historyTbody"></tbody>
-        </table>
-      </div>
-      <div id="emptyHistory" class="empty" style="display:none;">
-        <div class="icon">📭</div><div>暂无完成记录</div>
-      </div>
+    <div class="flex" style="justify-content:center;gap:12px;">
+      <button class="btn btn-outline" onclick="workerLogout()">退出登录</button>
     </div>
   </div>
 
-  <!-- 底部管理入口 -->
-  <div class="footer-login" id="footerLogin">
-    <a onclick="showLogin()">管理登录</a>
+  <!-- ========== 管理端 ========== -->
+  <div id="adminPanel" style="display:none;">
+    <div class="flex" style="justify-content:space-between;margin-bottom:16px;">
+      <h2 style="margin:0;">管理面板</h2>
+      <button class="btn btn-outline" onclick="adminLogout()">退出管理</button>
+    </div>
+
+    <!-- 在线排队 -->
+    <div class="card">
+      <h2>在线排队</h2>
+      <div id="adminOnlineList"></div>
+      <button id="btnDispatchNext" class="btn btn-primary btn-block mb" style="margin-top:8px;" onclick="dispatchNextInLine()">派单给排第一的打手</button>
+    </div>
+
+    <!-- 忙碌中 -->
+    <div class="card">
+      <h2>忙碌中</h2>
+      <div id="adminBusyList"></div>
+    </div>
+
+    <!-- 离线 -->
+    <div class="card">
+      <h2>离线打手</h2>
+      <div id="adminOfflineList"></div>
+    </div>
   </div>
 
-  <!-- 密码弹窗 -->
-  <div class="modal-overlay" id="loginModal" style="display:none;">
-    <div class="modal-box">
-      <h3>管理员登录</h3>
-      <input type="password" id="adminPassword" placeholder="请输入管理密码" onkeydown="if(event.key==='Enter')doLogin()">
-      <div class="modal-actions">
-        <button class="btn btn-outline btn-sm" onclick="hideLogin()">取消</button>
-        <button class="btn btn-primary btn-sm" onclick="doLogin()">登录</button>
-      </div>
+</div>
+
+<!-- 管理登录弹窗 -->
+<div id="loginModal">
+  <div class="card">
+    <h2>管理登录</h2>
+    <div class="form-group"><input id="adminPassword" type="password" placeholder="输入管理密码" onkeydown="if(event.key==='Enter')doAdminLogin()"></div>
+    <div class="flex">
+      <button class="btn btn-outline btn-block" onclick="hideAdminLogin()">取消</button>
+      <button class="btn btn-primary btn-block" onclick="doAdminLogin()">登录</button>
     </div>
   </div>
 </div>
 
 <script>
 // ========== 全局状态 ==========
-let orders = [];
-let workers = [];
 let currentRole = sessionStorage.getItem('admin_auth') === '1' ? 'admin' : 'worker';
-let currentWorker = '';
-let currentFilter = 'all';
+let currentWorker = sessionStorage.getItem('worker_name') || '';
+let myStatus = null; // null|{online,busy}
+let myTags = [];
+let workerStatuses = [];
+let adminTagFilter = ''; // 管理端标签筛选
 
-// ========== API 封装 ==========
+// ========== API ==========
 async function api(url, options = {}) {
   try {
-    const res = await fetch(url, {
-      headers: { 'Content-Type': 'application/json' },
-      ...options
-    });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || '请求失败');
-    }
+    const res = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...options });
+    if (!res.ok) { const err = await res.json(); throw new Error(err.error || '请求失败'); }
     return await res.json();
-  } catch (e) {
-    toast(e.message, 'error');
-    throw e;
-  }
-}
-
-// ========== 数据加载 ==========
-async function loadOrders() {
-  orders = await api('/api/orders');
-}
-
-async function loadWorkers() {
-  workers = await api('/api/workers');
-}
-
-async function refresh() {
-  await Promise.all([loadOrders(), loadWorkers()]);
-  renderAll();
+  } catch (e) { toast(e.message, 'error'); throw e; }
 }
 
 // ========== Toast ==========
@@ -376,293 +182,344 @@ function toast(msg, type = 'success') {
   setTimeout(() => el.remove(), 2000);
 }
 
-// ========== 管理员登录/登出 ==========
-function showLogin() {
+// ========== 数据 ==========
+const ALL_TAGS = ['监狱小时', '监狱体验', '赌红', '哈夫币', '核电站'];
+
+async function refresh() {
+  workerStatuses = await api('/api/workers/status');
+  if (currentWorker) {
+    const me = workerStatuses.find(w => w.name === currentWorker);
+    myStatus = me || null;
+    myTags = me ? me.tags : [];
+  }
+  renderAll();
+}
+
+// ========== 标签页切换 ==========
+function switchTab(tab) {
+  document.getElementById('loginForm').style.display = tab === 'login' ? 'block' : 'none';
+  document.getElementById('regForm').style.display = tab === 'register' ? 'block' : 'none';
+  document.getElementById('tabLogin').className = 'tab ' + (tab === 'login' ? 'active' : '');
+  document.getElementById('tabReg').className = 'tab ' + (tab === 'register' ? 'active' : '');
+}
+
+// ========== 打手注册/登录/登出 ==========
+async function workerLogin() {
+  const name = document.getElementById('loginName').value.trim();
+  const password = document.getElementById('loginPass').value;
+  if (!name || !password) { toast('请填写完整', 'error'); return; }
+  await api('/api/workers/login', { method: 'POST', body: JSON.stringify({ name, password }) });
+  sessionStorage.setItem('worker_name', name);
+  currentWorker = name;
+  currentRole = 'worker';
+  document.getElementById('loginPass').value = '';
+  toast('欢迎回来，' + name + '！');
+  refresh();
+}
+
+async function workerRegister() {
+  const name = document.getElementById('regName').value.trim();
+  const password = document.getElementById('regPass').value;
+  if (!name) { toast('请输入打手名', 'error'); return; }
+  if (!password || password.length < 4) { toast('密码至少4位', 'error'); return; }
+  await api('/api/workers/register', { method: 'POST', body: JSON.stringify({ name, password }) });
+  sessionStorage.setItem('worker_name', name);
+  currentWorker = name;
+  currentRole = 'worker';
+  document.getElementById('regName').value = '';
+  document.getElementById('regPass').value = '';
+  toast('注册成功，欢迎 ' + name + '！');
+  refresh();
+}
+
+function workerLogout() {
+  sessionStorage.removeItem('worker_name');
+  currentWorker = '';
+  myStatus = null;
+  toast('已退出');
+  renderAll();
+}
+
+// ========== 打手操作 ==========
+async function toggleOnline() {
+  await api('/api/workers/toggle-online', { method: 'POST', body: JSON.stringify({ name: currentWorker }) });
+  refresh();
+}
+
+async function toggleTag(tag) {
+  if (myTags.includes(tag)) {
+    myTags = myTags.filter(t => t !== tag);
+  } else {
+    myTags = [...myTags, tag];
+  }
+  await api('/api/workers/tags', { method: 'POST', body: JSON.stringify({ name: currentWorker, tags: myTags }) });
+  renderWorkerTags();
+}
+
+function renderWorkerTags() {
+  const div = document.getElementById('workerTagsList');
+  div.innerHTML = ALL_TAGS.map(tag => {
+    const checked = myTags.includes(tag);
+    return '<label style="' +
+      'padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;border:2px solid;' +
+      'transition:all .2s;' +
+      (checked
+        ? 'background:rgba(34,197,94,.15);border-color:var(--success);color:var(--success);'
+        : 'background:transparent;border-color:var(--border);color:var(--muted);'
+      ) +
+      '">' +
+      '<input type="checkbox" style="display:none;" ' + (checked ? 'checked' : '') + ' onchange="toggleTag(\'' + tag + '\')">' +
+      tag +
+      '</label>';
+  }).join('');
+}
+
+async function completeWork() {
+  await api('/api/workers/complete', { method: 'POST', body: JSON.stringify({ name: currentWorker }) });
+  toast('已完成，回到排队队伍！');
+  refresh();
+}
+
+// ========== 管理端 ==========
+function showAdminLogin() {
   document.getElementById('loginModal').style.display = 'flex';
   document.getElementById('adminPassword').focus();
   document.getElementById('adminPassword').value = '';
 }
+function hideAdminLogin() { document.getElementById('loginModal').style.display = 'none'; }
 
-function hideLogin() {
-  document.getElementById('loginModal').style.display = 'none';
-}
-
-async function doLogin() {
+async function doAdminLogin() {
   const pw = document.getElementById('adminPassword').value;
-  if (!pw) { toast('请输入密码', 'error'); return; }
   try {
-    await api('/api/auth', { method: 'POST', body: JSON.stringify({ password: pw }) });
+    await api('/api/admin/login', { method: 'POST', body: JSON.stringify({ password: pw }) });
     sessionStorage.setItem('admin_auth', '1');
     currentRole = 'admin';
-    hideLogin();
-    toast('登录成功，进入管理端');
-    renderAll();
-  } catch (e) {
-    // api() 已经弹了 toast
-  }
+    hideAdminLogin();
+    refresh();
+  } catch (e) {}
 }
-
-function logout() {
+function adminLogout() {
   sessionStorage.removeItem('admin_auth');
   currentRole = 'worker';
-  toast('已退出管理端');
+  toast('已退出管理');
   renderAll();
 }
 
-function switchView() {
-  document.getElementById('adminPanel').style.display = currentRole === 'admin' ? 'block' : 'none';
-  document.getElementById('workerPanel').style.display = currentRole === 'admin' ? 'none' : 'block';
-  document.getElementById('btnLogout').style.display = currentRole === 'admin' ? 'inline-block' : 'none';
-  document.getElementById('footerLogin').style.display = currentRole === 'admin' ? 'none' : 'block';
+// ========== 派单 ==========
+async function dispatchWorker(name) {
+  try {
+    await api('/api/workers/dispatch', { method: 'POST', body: JSON.stringify({ name }) });
+    toast('已派单给 ' + name);
+    refresh();
+  } catch (e) {}
 }
 
-// ========== 订单操作 ==========
-async function addOrder() {
-  const gameName = document.getElementById('gameName').value.trim();
-  const rankInfo = document.getElementById('rankInfo').value.trim();
-  const price = parseFloat(document.getElementById('price').value) || 0;
-  const customer = document.getElementById('customer').value.trim();
-  const notes = document.getElementById('notes').value.trim();
-
-  if (!gameName || !rankInfo) { toast('请至少填写游戏名称和段位要求', 'error'); return; }
-  if (price <= 0) { toast('请输入有效价格', 'error'); return; }
-
-  await api('/api/orders', {
-    method: 'POST',
-    body: JSON.stringify({ gameName, rankInfo, price, customer, notes })
-  });
-  clearForm();
-  toast('订单已加入排队！');
-  refresh();
+async function undispatchWorker(name) {
+  try {
+    await api('/api/workers/undispatch', { method: 'POST', body: JSON.stringify({ name }) });
+    toast('已取消派单，' + name + ' 回到排队');
+    refresh();
+  } catch (e) {}
 }
 
-function clearForm() {
-  document.getElementById('gameName').value = '';
-  document.getElementById('rankInfo').value = '';
-  document.getElementById('price').value = '';
-  document.getElementById('customer').value = '';
-  document.getElementById('notes').value = '';
+function dispatchNextInLine() {
+  let online = workerStatuses.filter(w => w.online && !w.busy);
+  if (adminTagFilter) online = online.filter(w => w.tags && w.tags.includes(adminTagFilter));
+  const next = online[0];
+  if (!next) { toast('没有在线等待的打手', 'error'); return; }
+  dispatchWorker(next.name);
 }
 
-async function claimOrder(orderId) {
-  if (!currentWorker) { toast('请先选择打手身份', 'error'); return; }
-  await api(`/api/orders/${orderId}/claim`, {
-    method: 'PUT',
-    body: JSON.stringify({ worker: currentWorker })
-  });
-  toast('接单成功！加油干！');
-  refresh();
+function setTagFilter(tag) {
+  adminTagFilter = tag;
+  renderAdmin();
 }
 
-async function finishOrder(orderId) {
-  if (!confirm('确认标记为已完成？')) return;
-  await api(`/api/orders/${orderId}/finish`, { method: 'PUT' });
-  toast('订单已完成！');
-  refresh();
-}
-
-async function cancelOrder(orderId) {
-  if (!confirm('确认取消这个订单？')) return;
-  await api(`/api/orders/${orderId}/cancel`, { method: 'PUT' });
-  toast('订单已取消');
-  refresh();
-}
-
-async function clearAll() {
-  if (!confirm('确认删除所有已完成的订单？此操作不可恢复。')) return;
-  await api('/api/orders/clear', { method: 'DELETE' });
-  toast('已清理完成/取消的订单');
-  refresh();
-}
-
-// ========== 打手管理 ==========
-async function addWorker() {
-  const name = document.getElementById('newWorker').value.trim();
-  if (!name) { toast('请输入打手名称', 'error'); return; }
-  await api('/api/workers', {
-    method: 'POST',
-    body: JSON.stringify({ name })
-  });
-  document.getElementById('newWorker').value = '';
-  await loadWorkers();
-  renderWorkerSelect();
-  currentWorker = name;
-  document.getElementById('workerName').value = name;
-  toast('打手 ' + name + ' 已添加');
-  renderAll();
-}
-
-function renderWorkerSelect() {
-  const sel = document.getElementById('workerName');
-  sel.innerHTML = '<option value="">-- 选择打手 --</option>' +
-    workers.map(w => `<option value="${w}" ${w === currentWorker ? 'selected' : ''}>${w}</option>`).join('');
-}
-
-function saveWorker() {
-  currentWorker = document.getElementById('workerName').value;
-  renderAll();
-}
-
-// ========== 过滤器 ==========
-function setFilter(f) {
-  currentFilter = f;
-  ['all','pending','doing','done','cancelled'].forEach(x => {
-    const btn = document.getElementById('filter' + x.charAt(0).toUpperCase() + x.slice(1));
-    if (btn) {
-      btn.style.background = (x === f) ? 'var(--primary)' : 'transparent';
-      btn.style.color = (x === f) ? '#fff' : '';
-    }
-  });
-  renderAll();
+async function deleteWorker(name) {
+  if (!confirm('确定删除打手「' + name + '」？此操作不可恢复。')) return;
+  try {
+    await api('/api/workers/' + encodeURIComponent(name), { method: 'DELETE' });
+    toast('已删除 ' + name);
+    refresh();
+  } catch (e) {}
 }
 
 // ========== 渲染 ==========
+function esc(str) { if (!str) return ''; const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
+
 function renderAll() {
-  switchView();
-  renderAdmin();
-  renderWorker();
+  // 面板显隐
+  document.getElementById('adminPanel').style.display = currentRole === 'admin' ? 'block' : 'none';
+  document.getElementById('workerLoginPanel').style.display = (currentRole !== 'admin' && !currentWorker) ? 'block' : 'none';
+  document.getElementById('workerWorkPanel').style.display = (currentRole !== 'admin' && currentWorker) ? 'block' : 'none';
+
+  if (currentRole === 'admin') renderAdmin();
+  else if (currentWorker) renderWorker();
 }
 
 function renderAdmin() {
-  if (currentRole !== 'admin') return;
-  const filtered = currentFilter === 'all' ? orders : orders.filter(o => o.status === currentFilter);
+  let online = workerStatuses.filter(w => w.online && !w.busy);
+  const busy = workerStatuses.filter(w => w.busy);
+  const offline = workerStatuses.filter(w => !w.online && !w.busy);
 
-  document.getElementById('statPending').textContent = orders.filter(o => o.status === 'pending').length;
-  document.getElementById('statDoing').textContent = orders.filter(o => o.status === 'doing').length;
-  document.getElementById('statDone').textContent = orders.filter(o => o.status === 'done').length;
-  document.getElementById('statTotal').textContent = orders.length;
-
-  const tbody = document.getElementById('orderTbody');
-  if (filtered.length === 0) {
-    tbody.innerHTML = '';
-    document.getElementById('orderTableWrap').style.display = 'none';
-    document.getElementById('emptyAdmin').style.display = 'block';
-  } else {
-    document.getElementById('orderTableWrap').style.display = 'block';
-    document.getElementById('emptyAdmin').style.display = 'none';
-    const statusMap = {
-      pending: ['待派发', 'badge-pending'],
-      doing: ['进行中', 'badge-doing'],
-      done: ['已完成', 'badge-done'],
-      cancelled: ['已取消', 'badge-cancelled']
-    };
-    tbody.innerHTML = filtered.map((o, i) => {
-      const [sText, sClass] = statusMap[o.status] || ['未知', ''];
-      const canCancel = o.status === 'pending' || o.status === 'doing';
-      return `<tr>
-        <td>${i + 1}</td>
-        <td><strong>${esc(o.game_name)}</strong></td>
-        <td>${esc(o.rank_info)}</td>
-        <td style="color:var(--success);font-weight:600;">¥${o.price.toFixed(2)}</td>
-        <td>${esc(o.customer)}</td>
-        <td>${o.worker ? esc(o.worker) : '<span style="color:var(--muted)">-</span>'}</td>
-        <td><span class="badge ${sClass}">${sText}</span></td>
-        <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(o.notes)}">${o.notes || '-'}</td>
-        <td style="font-size:12px;color:var(--muted);">${o.created_at}</td>
-        <td>${canCancel ? `<button class="btn btn-sm btn-danger" onclick="cancelOrder('${o.id}')">取消</button>` : ''}</td>
-      </tr>`;
-    }).join('');
+  // 标签筛选
+  if (adminTagFilter) {
+    online = online.filter(w => w.tags && w.tags.includes(adminTagFilter));
   }
 
-  // 高亮过滤器按钮
-  ['all','pending','doing','done','cancelled'].forEach(x => {
-    const btn = document.getElementById('filter' + x.charAt(0).toUpperCase() + x.slice(1));
-    if (btn) {
-      btn.style.background = (x === currentFilter) ? 'var(--primary)' : 'transparent';
-      btn.style.color = (x === currentFilter) ? '#fff' : '';
-    }
-  });
+  // 标签筛选按钮
+  const filterDiv = document.createElement('div');
+  filterDiv.className = 'flex';
+  filterDiv.style.cssText = 'margin-bottom:12px;gap:6px;';
+  filterDiv.innerHTML = '<button class="btn btn-sm ' + (adminTagFilter === '' ? 'btn-primary' : 'btn-outline') + '" onclick="setTagFilter(\'\')" style="padding:4px 12px;font-size:12px;">全部</button>' +
+    ALL_TAGS.map(t => '<button class="btn btn-sm ' + (adminTagFilter === t ? 'btn-primary' : 'btn-outline') + '" onclick="setTagFilter(\'' + t + '\')" style="padding:4px 12px;font-size:12px;">' + t + '</button>').join('');
+  // 把筛选按钮放到在线排队卡片
+  const onlineCard = document.querySelector('#adminPanel .card:nth-child(2)');
+  const existingFilter = document.getElementById('tagFilterRow');
+  if (existingFilter) existingFilter.remove();
+  filterDiv.id = 'tagFilterRow';
+  if (onlineCard) {
+    const heading = onlineCard.querySelector('h2');
+    if (heading) heading.after(filterDiv);
+  }
+
+  // 渲染标签小标签
+   function renderTags(tags) {
+     if (!tags || tags.length === 0) return '';
+     return tags.map(t => '<span style="background:rgba(59,130,246,.12);color:var(--primary);padding:1px 8px;border-radius:10px;font-size:11px;font-weight:600;margin-left:4px;">' + esc(t) + '</span>').join('');
+   }
+
+  // 在线排队
+  const onlineDiv = document.getElementById('adminOnlineList');
+  if (online.length === 0) {
+    onlineDiv.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);">暂无打手排队</div>';
+  } else {
+    onlineDiv.innerHTML = online.map((w, i) => {
+      const posClass = i === 0 ? 'p1' : i === 1 ? 'p2' : i === 2 ? 'p3' : '';
+      return '<div class="worker-row">' +
+        '<span class="pos ' + posClass + '">#' + (i + 1) + '</span>' +
+        '<div style="flex:1;">' +
+        '<span style="font-weight:600;">' + esc(w.name) + '</span>' +
+        renderTags(w.tags) +
+        '</div>' +
+        '<button class="btn btn-primary" onclick="dispatchWorker(\'' + esc(w.name) + '\')">派单</button>' +
+        '</div>';
+    }).join('');
+  }
+  document.getElementById('btnDispatchNext').style.display = online.length > 0 ? 'block' : 'none';
+  document.getElementById('btnDispatchNext').textContent = '派单给排第一的打手（' + online[0]?.name + '）';
+
+  // 忙碌中
+  const busyDiv = document.getElementById('adminBusyList');
+  if (busy.length === 0) {
+    busyDiv.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);">暂无忙碌打手</div>';
+  } else {
+    busyDiv.innerHTML = busy.map(w =>
+      '<div class="worker-row" style="border-color:rgba(245,158,11,.3);">' +
+      '<span style="font-size:20px;">🔨</span>' +
+      '<div style="flex:1;">' +
+      '<span style="font-weight:600;">' + esc(w.name) + '</span>' +
+      renderTags(w.tags) +
+      '</div>' +
+      '<span class="badge badge-yellow">忙碌中</span>' +
+      '<button class="btn btn-outline" onclick="undispatchWorker(\'' + esc(w.name) + '\')" style="margin-left:auto;">取消派单</button>' +
+      '</div>'
+    ).join('');
+  }
+
+  // 离线
+  const offlineDiv = document.getElementById('adminOfflineList');
+  if (offline.length === 0) {
+    offlineDiv.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);">所有打手都在线</div>';
+  } else {
+    offlineDiv.innerHTML = offline.map(w =>
+      '<div class="worker-row" style="opacity:.7;">' +
+      '<span style="font-size:20px;">💤</span>' +
+      '<div style="flex:1;">' +
+      '<span style="font-weight:600;">' + esc(w.name) + '</span>' +
+      renderTags(w.tags) +
+      '</div>' +
+      '<span class="badge" style="color:var(--muted);">离线</span>' +
+      '<button class="btn btn-danger" style="padding:4px 10px;font-size:12px;margin-left:8px;" onclick="deleteWorker(\'' + esc(w.name) + '\')">删除</button>' +
+      '</div>'
+    ).join('');
+  }
 }
 
 function renderWorker() {
-  if (currentRole !== 'worker') return;
-  renderWorkerSelect();
+  const myself = workerStatuses.find(w => w.name === currentWorker);
+  const online = workerStatuses.filter(w => w.online && !w.busy);
 
-  const tag = document.getElementById('currentWorkerTag');
-  if (currentWorker) {
-    tag.style.display = 'inline-block';
-    tag.textContent = '👤 ' + currentWorker;
+  // 我的状态
+  const statusDiv = document.getElementById('workerMyStatus');
+  if (!myself || !myself.online) {
+    // 不在线
+    statusDiv.innerHTML =
+      '<div class="icon">💤</div>' +
+      '<div class="status-text">你当前已下线</div>' +
+      '<div class="hint">点击按钮上线加入排队</div>' +
+      '<button class="btn btn-success btn-lg" style="margin-top:16px;" onclick="toggleOnline()">上线排队</button>';
+  } else if (myself.busy) {
+    // 忙碌中
+    statusDiv.innerHTML =
+      '<div class="icon">🔨</div>' +
+      '<div class="status-text" style="color:var(--warning);">已派单给你，正在干活</div>' +
+      '<div class="hint">完成后点按钮归队</div>' +
+      '<button class="btn btn-warning btn-lg" style="margin-top:16px;" onclick="completeWork()">完成，重新排队</button>';
   } else {
-    tag.style.display = 'none';
+    // 在线排队
+    const pos = online.findIndex(w => w.name === currentWorker) + 1;
+    statusDiv.innerHTML =
+      '<div class="icon">⏳</div>' +
+      '<div class="status-text" style="color:var(--success);">排队中 · 第 ' + pos + ' 位</div>' +
+      '<div class="hint">等待管理员派单</div>' +
+      '<button class="btn btn-outline btn-lg" style="margin-top:16px;" onclick="toggleOnline()">下线</button>';
   }
 
-  const pendingOrders = orders.filter(o => o.status === 'pending');
-  const myDoing = orders.filter(o => o.status === 'doing' && o.worker === currentWorker);
-  const myDone = orders.filter(o => o.status === 'done' && o.worker === currentWorker);
+  // 接单类型标签
+  document.getElementById('workerTagsCard').style.display = 'block';
+  renderWorkerTags();
 
-  document.getElementById('wStatPending').textContent = pendingOrders.length;
-  document.getElementById('wStatDoing').textContent = myDoing.length;
-  document.getElementById('wStatDone').textContent = myDone.length;
-
-  // 排队池
-  const qList = document.getElementById('queueList');
-  const emptyW = document.getElementById('emptyWorker');
-  if (pendingOrders.length === 0) {
-    qList.innerHTML = '';
-    emptyW.style.display = 'block';
+  // 排队列表
+  const queueDiv = document.getElementById('queueListView');
+  if (online.length === 0) {
+    queueDiv.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);">排队队伍为空</div>';
   } else {
-    emptyW.style.display = 'none';
-    qList.innerHTML = pendingOrders.map((o, i) => `
-      <li class="queue-item">
-        <div class="info">
-          <div class="title"><span class="seq">#${i + 1}</span>${esc(o.game_name)} - ${esc(o.rank_info)}</div>
-          <div class="meta">客户：${esc(o.customer)}　${o.notes ? '备注：' + esc(o.notes) : ''}　${o.created_at}</div>
-        </div>
-        <div class="price">¥${o.price.toFixed(2)}</div>
-        <button class="btn btn-success btn-sm" onclick="claimOrder('${o.id}')" ${!currentWorker ? 'disabled' : ''}>✋ 接单</button>
-      </li>
-    `).join('');
-  }
-
-  // 我的订单
-  const myTbody = document.getElementById('myOrdersTbody');
-  const emptyMy = document.getElementById('emptyMyOrders');
-  if (myDoing.length === 0 && myDone.length === 0) {
-    myTbody.innerHTML = '';
-    emptyMy.style.display = 'block';
-  } else {
-    emptyMy.style.display = 'none';
-    const myAll = [...myDoing, ...myDone];
-    myTbody.innerHTML = myAll.map((o, i) => `
-      <tr>
-        <td>${i + 1}</td>
-        <td><strong>${esc(o.game_name)}</strong></td>
-        <td>${esc(o.rank_info)}</td>
-        <td style="color:var(--success);font-weight:600;">¥${o.price.toFixed(2)}</td>
-        <td>${esc(o.customer)}</td>
-        <td>${o.status === 'doing' ? '<span class="badge badge-doing">进行中</span>' : '<span class="badge badge-done">已完成</span>'}</td>
-        <td style="font-size:12px;color:var(--muted);">${o.created_at}</td>
-        <td>${o.status === 'doing' ? `<button class="btn btn-sm btn-primary" onclick="finishOrder('${o.id}')">✅ 完成</button>` : ''}</td>
-      </tr>
-    `).join('');
-  }
-
-  // 历史
-  const hTbody = document.getElementById('historyTbody');
-  const emptyH = document.getElementById('emptyHistory');
-  if (myDone.length === 0) {
-    hTbody.innerHTML = '';
-    emptyH.style.display = 'block';
-  } else {
-    emptyH.style.display = 'none';
-    hTbody.innerHTML = myDone.map((o, i) => `
-      <tr>
-        <td>${i + 1}</td>
-        <td><strong>${esc(o.game_name)}</strong></td>
-        <td>${esc(o.rank_info)}</td>
-        <td style="color:var(--success);font-weight:600;">¥${o.price.toFixed(2)}</td>
-        <td>${esc(o.customer)}</td>
-        <td style="font-size:12px;color:var(--muted);">${o.done_at}</td>
-      </tr>
-    `).join('');
-    emptyH.style.display = 'none';
+    queueDiv.innerHTML = online.map((w, i) => {
+      const isMe = w.name === currentWorker;
+      const posClass = i === 0 ? 'p1' : i === 1 ? 'p2' : i === 2 ? 'p3' : '';
+      const tagBadges = (w.tags && w.tags.length > 0) ? '<span style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">' + w.tags.map(t => '<span style="background:rgba(59,130,246,.12);color:var(--primary);padding:1px 8px;border-radius:10px;font-size:11px;font-weight:600;">' + esc(t) + '</span>').join('') + '</span>' : '';
+      return '<div class="worker-row' + (isMe ? '" style="border-color:var(--success);"' : '') + '' +
+        '<span class="pos ' + posClass + '">#' + (i + 1) + '</span>' +
+        '<div style="flex:1;">' +
+        '<span class="name" style="display:block;">' + esc(w.name) + '</span>' +
+        tagBadges +
+        '</div>' +
+        (isMe ? '<span class="badge badge-green">你</span>' : '') +
+        '</div>';
+    }).join('');
   }
 }
 
-function esc(s) { return (s || '').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
-
-// ========== 初始化 ==========
+// ========== 自动刷新 ==========
 refresh();
+setInterval(refresh, 3000);
+
+// 底部管理入口
+document.addEventListener('DOMContentLoaded', () => {
+  const footer = document.createElement('div');
+  footer.style.cssText = 'text-align:center;padding:20px;color:var(--muted);font-size:12px;';
+  footer.innerHTML = '<a href="javascript:showAdminLogin()" style="color:var(--muted);text-decoration:none;">管理登录</a>';
+  footer.id = 'footerLogin';
+  document.querySelector('.container').after(footer);
+});
+
+// 登陆后隐藏底部入口
+setInterval(() => {
+  const f = document.getElementById('footerLogin');
+  if (f) f.style.display = (currentRole === 'admin' || currentWorker) ? 'none' : 'block';
+}, 500);
 </script>
+
 </body>
 </html>
