@@ -1,0 +1,12 @@
+{
+  "name": "dispatch-system",
+  "version": "1.0.0",
+  "description": "游戏工作室派单排队系统",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0"
+  }
+}

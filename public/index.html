@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>派单排队系统</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --card: #1e293b;
+    --border: #334155;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --primary: #3b82f6;
+    --success: #22c55e;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --purple: #8b5cf6;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  .container { max-width: 1000px; margin: 0 auto; padding: 20px; }
+
+  .header {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 12px; margin-bottom: 24px;
+    padding: 20px; background: var(--card);
+    border-radius: 16px; border: 1px solid var(--border);
+  }
+  .header h1 { font-size: 24px; color: #fff; }
+  .header h1 span { color: var(--primary); }
+  .role-switch {
+    display: flex; gap: 4px;
+    background: #0f172a; padding: 4px; border-radius: 10px;
+  }
+  .role-switch button {
+    padding: 8px 20px; border: none; border-radius: 8px;
+    cursor: pointer; font-size: 14px; font-weight: 600;
+    background: transparent; color: var(--muted);
+    transition: all 0.2s;
+  }
+  .role-switch button.active { background: var(--primary); color: #fff; }
+
+  /* 状态提示 */
+  .status-bar {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 16px; font-size: 12px; color: var(--muted);
+  }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .status-dot.online { background: var(--success); }
+  .status-dot.offline { background: var(--danger); }
+
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .stat-card {
+    background: var(--card); border-radius: 12px; padding: 16px;
+    border: 1px solid var(--border);
+  }
+  .stat-card .num { font-size: 32px; font-weight: 700; }
+  .stat-card .label { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+  .card {
+    background: var(--card); border-radius: 16px;
+    border: 1px solid var(--border); padding: 20px; margin-bottom: 20px;
+  }
+  .card h2 { font-size: 18px; margin-bottom: 16px; color: #fff; }
+
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 12px; }
+  .form-group { display: flex; flex-direction: column; gap: 4px; }
+  .form-group label { font-size: 13px; color: var(--muted); }
+  .form-group input, .form-group select, .form-group textarea {
+    padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border);
+    background: #0f172a; color: #fff; font-size: 14px; outline: none;
+    transition: border 0.2s;
+  }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--primary); }
+
+  .btn {
+    padding: 10px 24px; border: none; border-radius: 8px;
+    cursor: pointer; font-size: 14px; font-weight: 600; transition: all 0.2s;
+  }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: #2563eb; }
+  .btn-success { background: var(--success); color: #fff; }
+  .btn-success:hover:not(:disabled) { background: #16a34a; }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-danger:hover:not(:disabled) { background: #dc2626; }
+  .btn-sm { padding: 6px 14px; font-size: 12px; border-radius: 6px; }
+  .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  .btn-outline:hover { background: #1e293b; }
+
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    text-align: left; padding: 10px 12px;
+    font-size: 12px; color: var(--muted); text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+  }
+  tbody td { padding: 12px; border-bottom: 1px solid var(--border); font-size: 14px; }
+  tbody tr:hover { background: rgba(59,130,246,0.05); }
+
+  .badge {
+    display: inline-block; padding: 3px 10px; border-radius: 20px;
+    font-size: 12px; font-weight: 600;
+  }
+  .badge-pending { background: rgba(245,158,11,0.15); color: var(--warning); }
+  .badge-doing { background: rgba(59,130,246,0.15); color: var(--primary); }
+  .badge-done { background: rgba(34,197,94,0.15); color: var(--success); }
+  .badge-cancelled { background: rgba(239,68,68,0.15); color: var(--danger); }
+
+  .worker-select { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .worker-tag {
+    padding: 6px 16px; border-radius: 20px; font-size: 14px; font-weight: 600;
+    background: var(--primary); color: #fff;
+  }
+
+  .empty { text-align: center; padding: 40px 20px; color: var(--muted); }
+  .empty .icon { font-size: 48px; margin-bottom: 12px; }
+
+  .queue-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+  .queue-item {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 14px 16px; background: #0f172a; border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+  .queue-item .info { flex: 1; min-width: 0; }
+  .queue-item .title { font-size: 15px; font-weight: 600; margin-bottom: 2px; }
+  .queue-item .title .seq { color: var(--warning); margin-right: 6px; }
+  .queue-item .meta { font-size: 12px; color: var(--muted); }
+  .queue-item .price { font-size: 18px; font-weight: 700; color: var(--success); white-space: nowrap; }
+
+  .toast {
+    position: fixed; top: 20px; right: 20px; z-index: 999;
+    padding: 12px 24px; border-radius: 10px; font-size: 14px; font-weight: 600;
+    animation: slideIn 0.3s ease;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  }
+  .toast-success { background: var(--success); color: #000; }
+  .toast-error { background: var(--danger); color: #fff; }
+  @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+  .flex { display: flex; gap: 8px; flex-wrap: wrap; }
+  .mt-8 { margin-top: 8px; }
+  .text-muted { color: var(--muted); font-size: 13px; }
+  .price-input-wrapper { position: relative; }
+  .price-input-wrapper::before { content: '¥'; position: absolute; left: 12px; top: 10px; color: var(--muted); z-index: 1; }
+  .price-input-wrapper input { padding-left: 24px !important; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>🎮 <span>派单</span>排队系统</h1>
+    <div class="role-switch">
+      <button id="btnAdmin" class="active" onclick="switchRole('admin')">管理端</button>
+      <button id="btnWorker" onclick="switchRole('worker')">打手端</button>
+    </div>
+  </div>
+
+  <!-- ==================== 管理端 ==================== -->
+  <div id="adminPanel">
+    <div class="stats">
+      <div class="stat-card pending"><div class="num" id="statPending">0</div><div class="label">待派发</div></div>
+      <div class="stat-card doing"><div class="num" id="statDoing">0</div><div class="label">进行中</div></div>
+      <div class="stat-card done"><div class="num" id="statDone">0</div><div class="label">已完成</div></div>
+      <div class="stat-card total"><div class="num" id="statTotal">0</div><div class="label">总订单</div></div>
+    </div>
+
+    <div class="card">
+      <h2>📝 录入新订单</h2>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>游戏名称</label>
+          <input id="gameName" placeholder="例：王者荣耀">
+        </div>
+        <div class="form-group">
+          <label>段位 / 要求</label>
+          <input id="rankInfo" placeholder="例：钻石→王者">
+        </div>
+        <div class="form-group">
+          <label>价格</label>
+          <div class="price-input-wrapper">
+            <input id="price" type="number" placeholder="50" min="0" step="0.01">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>客户昵称</label>
+          <input id="customer" placeholder="例：张三">
+        </div>
+      </div>
+      <div class="form-grid" style="margin-top: 4px;">
+        <div class="form-group" style="grid-column: 1 / -1;">
+          <label>备注（区服、账号信息等）</label>
+          <textarea id="notes" rows="2" placeholder="例：微信区、账号xxx密码xxx"></textarea>
+        </div>
+      </div>
+      <div class="flex" style="margin-top: 4px;">
+        <button class="btn btn-primary" onclick="addOrder()">加入排队</button>
+        <button class="btn btn-outline" onclick="clearForm()">清空</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>📋 全部订单</h2>
+      <div class="flex" style="margin-bottom: 12px;">
+        <button class="btn btn-sm btn-outline" onclick="setFilter('all')" id="filterAll">全部</button>
+        <button class="btn btn-sm btn-outline" onclick="setFilter('pending')" id="filterPending">待派发</button>
+        <button class="btn btn-sm btn-outline" onclick="setFilter('doing')" id="filterDoing">进行中</button>
+        <button class="btn btn-sm btn-outline" onclick="setFilter('done')" id="filterDone">已完成</button>
+        <button class="btn btn-sm btn-outline" onclick="setFilter('cancelled')" id="filterCancelled">已取消</button>
+        <button class="btn btn-sm btn-danger" onclick="clearAll()" style="margin-left: auto;">🗑 清空已完成</button>
+      </div>
+      <div id="orderTableWrap" style="overflow-x: auto">
+        <table>
+          <thead>
+            <tr><th>#</th><th>游戏</th><th>段位要求</th><th>价格</th><th>客户</th><th>打手</th><th>状态</th><th>备注</th><th>时间</th><th>操作</th></tr>
+          </thead>
+          <tbody id="orderTbody"></tbody>
+        </table>
+      </div>
+      <div id="emptyAdmin" class="empty" style="display:none;">
+        <div class="icon">📭</div><div>还没有订单，赶紧录一单吧</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 打手端 ==================== -->
+  <div id="workerPanel" style="display:none;">
+    <div class="stats">
+      <div class="stat-card pending"><div class="num" id="wStatPending">0</div><div class="label">可接订单</div></div>
+      <div class="stat-card doing"><div class="num" id="wStatDoing">0</div><div class="label">我的进行中</div></div>
+      <div class="stat-card done"><div class="num" id="wStatDone">0</div><div class="label">我的已完成</div></div>
+    </div>
+
+    <div class="card">
+      <div class="worker-select">
+        <span>当前打手：</span>
+        <select id="workerName" onchange="saveWorker()">
+          <option value="">-- 选择打手 --</option>
+        </select>
+        <input id="newWorker" placeholder="添加新打手名称" style="padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:#0f172a; color:#fff; width:160px;">
+        <button class="btn btn-sm btn-primary" onclick="addWorker()">添加</button>
+        <span class="worker-tag" id="currentWorkerTag" style="display:none;"></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>📌 可接订单（排队中）</h2>
+      <ul class="queue-list" id="queueList"></ul>
+      <div id="emptyWorker" class="empty">
+        <div class="icon">🎉</div><div>暂无待派发订单，休息一下</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>📂 我的订单</h2>
+      <div style="overflow-x: auto">
+        <table>
+          <thead><tr><th>#</th><th>游戏</th><th>段位要求</th><th>价格</th><th>客户</th><th>状态</th><th>时间</th><th>操作</th></tr></thead>
+          <tbody id="myOrdersTbody"></tbody>
+        </table>
+      </div>
+      <div id="emptyMyOrders" class="empty" style="display:none;">
+        <div class="icon">😴</div><div>你还没有接过单</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>📜 完成记录</h2>
+      <div style="overflow-x: auto">
+        <table>
+          <thead><tr><th>#</th><th>游戏</th><th>段位要求</th><th>价格</th><th>客户</th><th>完成时间</th></tr></thead>
+          <tbody id="historyTbody"></tbody>
+        </table>
+      </div>
+      <div id="emptyHistory" class="empty" style="display:none;">
+        <div class="icon">📭</div><div>暂无完成记录</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ========== 全局状态 ==========
+let orders = [];
+let workers = [];
+let currentRole = 'admin';
+let currentWorker = '';
+let currentFilter = 'all';
+
+// ========== API 封装 ==========
+async function api(url, options = {}) {
+  try {
+    const res = await fetch(url, {
+      headers: { 'Content-Type': 'application/json' },
+      ...options
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || '请求失败');
+    }
+    return await res.json();
+  } catch (e) {
+    toast(e.message, 'error');
+    throw e;
+  }
+}
+
+// ========== 数据加载 ==========
+async function loadOrders() {
+  orders = await api('/api/orders');
+}
+
+async function loadWorkers() {
+  workers = await api('/api/workers');
+}
+
+async function refresh() {
+  await Promise.all([loadOrders(), loadWorkers()]);
+  renderAll();
+}
+
+// ========== Toast ==========
+function toast(msg, type = 'success') {
+  const el = document.createElement('div');
+  el.className = 'toast toast-' + type;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2000);
+}
+
+// ========== 角色切换 ==========
+function switchRole(role) {
+  currentRole = role;
+  document.getElementById('btnAdmin').classList.toggle('active', role === 'admin');
+  document.getElementById('btnWorker').classList.toggle('active', role === 'worker');
+  document.getElementById('adminPanel').style.display = role === 'admin' ? 'block' : 'none';
+  document.getElementById('workerPanel').style.display = role === 'worker' ? 'block' : 'none';
+  renderAll();
+}
+
+// ========== 订单操作 ==========
+async function addOrder() {
+  const gameName = document.getElementById('gameName').value.trim();
+  const rankInfo = document.getElementById('rankInfo').value.trim();
+  const price = parseFloat(document.getElementById('price').value) || 0;
+  const customer = document.getElementById('customer').value.trim();
+  const notes = document.getElementById('notes').value.trim();
+
+  if (!gameName || !rankInfo) { toast('请至少填写游戏名称和段位要求', 'error'); return; }
+  if (price <= 0) { toast('请输入有效价格', 'error'); return; }
+
+  await api('/api/orders', {
+    method: 'POST',
+    body: JSON.stringify({ gameName, rankInfo, price, customer, notes })
+  });
+  clearForm();
+  toast('订单已加入排队！');
+  refresh();
+}
+
+function clearForm() {
+  document.getElementById('gameName').value = '';
+  document.getElementById('rankInfo').value = '';
+  document.getElementById('price').value = '';
+  document.getElementById('customer').value = '';
+  document.getElementById('notes').value = '';
+}
+
+async function claimOrder(orderId) {
+  if (!currentWorker) { toast('请先选择打手身份', 'error'); return; }
+  await api(`/api/orders/${orderId}/claim`, {
+    method: 'PUT',
+    body: JSON.stringify({ worker: currentWorker })
+  });
+  toast('接单成功！加油干！');
+  refresh();
+}
+
+async function finishOrder(orderId) {
+  if (!confirm('确认标记为已完成？')) return;
+  await api(`/api/orders/${orderId}/finish`, { method: 'PUT' });
+  toast('订单已完成！');
+  refresh();
+}
+
+async function cancelOrder(orderId) {
+  if (!confirm('确认取消这个订单？')) return;
+  await api(`/api/orders/${orderId}/cancel`, { method: 'PUT' });
+  toast('订单已取消');
+  refresh();
+}
+
+async function clearAll() {
+  if (!confirm('确认删除所有已完成的订单？此操作不可恢复。')) return;
+  await api('/api/orders/clear', { method: 'DELETE' });
+  toast('已清理完成/取消的订单');
+  refresh();
+}
+
+// ========== 打手管理 ==========
+async function addWorker() {
+  const name = document.getElementById('newWorker').value.trim();
+  if (!name) { toast('请输入打手名称', 'error'); return; }
+  await api('/api/workers', {
+    method: 'POST',
+    body: JSON.stringify({ name })
+  });
+  document.getElementById('newWorker').value = '';
+  await loadWorkers();
+  renderWorkerSelect();
+  currentWorker = name;
+  document.getElementById('workerName').value = name;
+  toast('打手 ' + name + ' 已添加');
+  renderAll();
+}
+
+function renderWorkerSelect() {
+  const sel = document.getElementById('workerName');
+  sel.innerHTML = '<option value="">-- 选择打手 --</option>' +
+    workers.map(w => `<option value="${w}" ${w === currentWorker ? 'selected' : ''}>${w}</option>`).join('');
+}
+
+function saveWorker() {
+  currentWorker = document.getElementById('workerName').value;
+  renderAll();
+}
+
+// ========== 过滤器 ==========
+function setFilter(f) {
+  currentFilter = f;
+  ['all','pending','doing','done','cancelled'].forEach(x => {
+    const btn = document.getElementById('filter' + x.charAt(0).toUpperCase() + x.slice(1));
+    if (btn) {
+      btn.style.background = (x === f) ? 'var(--primary)' : 'transparent';
+      btn.style.color = (x === f) ? '#fff' : '';
+    }
+  });
+  renderAll();
+}
+
+// ========== 渲染 ==========
+function renderAll() {
+  renderAdmin();
+  renderWorker();
+}
+
+function renderAdmin() {
+  if (currentRole !== 'admin') return;
+  const filtered = currentFilter === 'all' ? orders : orders.filter(o => o.status === currentFilter);
+
+  document.getElementById('statPending').textContent = orders.filter(o => o.status === 'pending').length;
+  document.getElementById('statDoing').textContent = orders.filter(o => o.status === 'doing').length;
+  document.getElementById('statDone').textContent = orders.filter(o => o.status === 'done').length;
+  document.getElementById('statTotal').textContent = orders.length;
+
+  const tbody = document.getElementById('orderTbody');
+  if (filtered.length === 0) {
+    tbody.innerHTML = '';
+    document.getElementById('orderTableWrap').style.display = 'none';
+    document.getElementById('emptyAdmin').style.display = 'block';
+  } else {
+    document.getElementById('orderTableWrap').style.display = 'block';
+    document.getElementById('emptyAdmin').style.display = 'none';
+    const statusMap = {
+      pending: ['待派发', 'badge-pending'],
+      doing: ['进行中', 'badge-doing'],
+      done: ['已完成', 'badge-done'],
+      cancelled: ['已取消', 'badge-cancelled']
+    };
+    tbody.innerHTML = filtered.map((o, i) => {
+      const [sText, sClass] = statusMap[o.status] || ['未知', ''];
+      const canCancel = o.status === 'pending' || o.status === 'doing';
+      return `<tr>
+        <td>${i + 1}</td>
+        <td><strong>${esc(o.game_name)}</strong></td>
+        <td>${esc(o.rank_info)}</td>
+        <td style="color:var(--success);font-weight:600;">¥${o.price.toFixed(2)}</td>
+        <td>${esc(o.customer)}</td>
+        <td>${o.worker ? esc(o.worker) : '<span style="color:var(--muted)">-</span>'}</td>
+        <td><span class="badge ${sClass}">${sText}</span></td>
+        <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(o.notes)}">${o.notes || '-'}</td>
+        <td style="font-size:12px;color:var(--muted);">${o.created_at}</td>
+        <td>${canCancel ? `<button class="btn btn-sm btn-danger" onclick="cancelOrder('${o.id}')">取消</button>` : ''}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  // 高亮过滤器按钮
+  ['all','pending','doing','done','cancelled'].forEach(x => {
+    const btn = document.getElementById('filter' + x.charAt(0).toUpperCase() + x.slice(1));
+    if (btn) {
+      btn.style.background = (x === currentFilter) ? 'var(--primary)' : 'transparent';
+      btn.style.color = (x === currentFilter) ? '#fff' : '';
+    }
+  });
+}
+
+function renderWorker() {
+  if (currentRole !== 'worker') return;
+  renderWorkerSelect();
+
+  const tag = document.getElementById('currentWorkerTag');
+  if (currentWorker) {
+    tag.style.display = 'inline-block';
+    tag.textContent = '👤 ' + currentWorker;
+  } else {
+    tag.style.display = 'none';
+  }
+
+  const pendingOrders = orders.filter(o => o.status === 'pending');
+  const myDoing = orders.filter(o => o.status === 'doing' && o.worker === currentWorker);
+  const myDone = orders.filter(o => o.status === 'done' && o.worker === currentWorker);
+
+  document.getElementById('wStatPending').textContent = pendingOrders.length;
+  document.getElementById('wStatDoing').textContent = myDoing.length;
+  document.getElementById('wStatDone').textContent = myDone.length;
+
+  // 排队池
+  const qList = document.getElementById('queueList');
+  const emptyW = document.getElementById('emptyWorker');
+  if (pendingOrders.length === 0) {
+    qList.innerHTML = '';
+    emptyW.style.display = 'block';
+  } else {
+    emptyW.style.display = 'none';
+    qList.innerHTML = pendingOrders.map((o, i) => `
+      <li class="queue-item">
+        <div class="info">
+          <div class="title"><span class="seq">#${i + 1}</span>${esc(o.game_name)} - ${esc(o.rank_info)}</div>
+          <div class="meta">客户：${esc(o.customer)}　${o.notes ? '备注：' + esc(o.notes) : ''}　${o.created_at}</div>
+        </div>
+        <div class="price">¥${o.price.toFixed(2)}</div>
+        <button class="btn btn-success btn-sm" onclick="claimOrder('${o.id}')" ${!currentWorker ? 'disabled' : ''}>✋ 接单</button>
+      </li>
+    `).join('');
+  }
+
+  // 我的订单
+  const myTbody = document.getElementById('myOrdersTbody');
+  const emptyMy = document.getElementById('emptyMyOrders');
+  if (myDoing.length === 0 && myDone.length === 0) {
+    myTbody.innerHTML = '';
+    emptyMy.style.display = 'block';
+  } else {
+    emptyMy.style.display = 'none';
+    const myAll = [...myDoing, ...myDone];
+    myTbody.innerHTML = myAll.map((o, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td><strong>${esc(o.game_name)}</strong></td>
+        <td>${esc(o.rank_info)}</td>
+        <td style="color:var(--success);font-weight:600;">¥${o.price.toFixed(2)}</td>
+        <td>${esc(o.customer)}</td>
+        <td>${o.status === 'doing' ? '<span class="badge badge-doing">进行中</span>' : '<span class="badge badge-done">已完成</span>'}</td>
+        <td style="font-size:12px;color:var(--muted);">${o.created_at}</td>
+        <td>${o.status === 'doing' ? `<button class="btn btn-sm btn-primary" onclick="finishOrder('${o.id}')">✅ 完成</button>` : ''}</td>
+      </tr>
+    `).join('');
+  }
+
+  // 历史
+  const hTbody = document.getElementById('historyTbody');
+  const emptyH = document.getElementById('emptyHistory');
+  if (myDone.length === 0) {
+    hTbody.innerHTML = '';
+    emptyH.style.display = 'block';
+  } else {
+    emptyH.style.display = 'none';
+    hTbody.innerHTML = myDone.map((o, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td><strong>${esc(o.game_name)}</strong></td>
+        <td>${esc(o.rank_info)}</td>
+        <td style="color:var(--success);font-weight:600;">¥${o.price.toFixed(2)}</td>
+        <td>${esc(o.customer)}</td>
+        <td style="font-size:12px;color:var(--muted);">${o.done_at}</td>
+      </tr>
+    `).join('');
+    emptyH.style.display = 'none';
+  }
+}
+
+function esc(s) { return (s || '').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+// ========== 初始化 ==========
+refresh();
+</script>
+</body>
+</html>
