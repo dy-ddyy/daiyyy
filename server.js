@@ -86,19 +86,28 @@ app.post('/api/workers/tags', (req, res) => {
   res.json({ name: w.name, tags: w.tags });
 });
 
-// ==================== 微信推送 ====================
+// ==================== 微信 + 邮箱推送 ====================
 function pushNotify(title, content) {
   if (!PUSHPLUS_TOKEN) return;
-  const data = JSON.stringify({ token: PUSHPLUS_TOKEN, title, content });
+
+  // 微信推送
+  sendPush(title, content, 'wechat');
+  // 邮箱推送
+  sendPush(title, content, 'mail');
+}
+
+function sendPush(title, content, channel) {
+  const body = { token: PUSHPLUS_TOKEN, title, content, channel };
+  const data = JSON.stringify(body);
   const req = http.request({
     hostname: 'www.pushplus.plus',
     path: '/send',
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) }
   }, res => {
-    let body = '';
-    res.on('data', chunk => body += chunk);
-    res.on('end', () => console.log('[PushPlus]', body));
+    let b = '';
+    res.on('data', chunk => b += chunk);
+    res.on('end', () => console.log('[PushPlus ' + channel + ']', b));
   });
   req.on('error', e => console.error('[PushPlus Error]', e.message));
   req.write(data);
