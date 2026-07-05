@@ -1,11 +1,13 @@
 const express = require('express');
 const crypto = require('crypto');
+const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'dyd121';
+const PUSHPLUS_TOKEN = process.env.PUSHPLUS_TOKEN || 'cedfa8aadd014a10a6e25a746a937f88';
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -84,6 +86,25 @@ app.post('/api/workers/tags', (req, res) => {
   res.json({ name: w.name, tags: w.tags });
 });
 
+// ==================== 微信推送 ====================
+function pushNotify(title, content) {
+  if (!PUSHPLUS_TOKEN) return;
+  const data = JSON.stringify({ token: PUSHPLUS_TOKEN, title, content });
+  const req = http.request({
+    hostname: 'www.pushplus.plus',
+    path: '/send',
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) }
+  }, res => {
+    let body = '';
+    res.on('data', chunk => body += chunk);
+    res.on('end', () => console.log('[PushPlus]', body));
+  });
+  req.on('error', e => console.error('[PushPlus Error]', e.message));
+  req.write(data);
+  req.end();
+}
+
 // ==================== 打手上下线 ====================
 app.post('/api/workers/toggle-online', (req, res) => {
   const { name, end_time } = req.body;
@@ -104,6 +125,18 @@ app.post('/api/workers/toggle-online', (req, res) => {
     w.end_time = null;
   }
   writeJSON(WORKERS_FILE, workers);
+
+  // 微信推送通知
+  const onlineCount = workers.filter(x => typeof x === 'object' && x.online && !x.busy).length;
+  if (w.online) {
+    const endStr = w.end_time ? '，预计接单到 ' + new Date(w.end_time).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '，不确定结束时间';
+    pushNotify('打手上线通知',
+      '<b>' + name + '</b> 已上线' + endStr +
+      '<br>当前在线蹲单：<b>' + onlineCount + '</b> 人' +
+      '<br><br><a href="https://daiyyy-production.up.railway.app">点击进入管理端</a>'
+    );
+  }
+
   res.json({ name: w.name, online: w.online, busy: w.busy, end_time: w.end_time || null });
 });
 
