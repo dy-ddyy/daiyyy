@@ -1,6 +1,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const http = require('http');
+const https = require('https');
 const fs = require('fs');
 const path = require('path');
 
@@ -8,6 +9,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'dyd121';
 const PUSHPLUS_TOKEN = process.env.PUSHPLUS_TOKEN || 'cedfa8aadd014a10a6e25a746a937f88';
+const DING_WEBHOOK = process.env.DING_WEBHOOK || 'https://oapi.dingtalk.com/robot/send?access_token=78916203613e0b8477500bdf8eb729e7915b45745fc855609087fb9c34a03d66';
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -86,17 +88,19 @@ app.post('/api/workers/tags', (req, res) => {
   res.json({ name: w.name, tags: w.tags });
 });
 
-// ==================== 微信 + 邮箱推送 ====================
+// ==================== 微信 + 邮箱 + 钉钉推送 ====================
 function pushNotify(title, content) {
   if (!PUSHPLUS_TOKEN) return;
 
-  // 微信推送
-  sendPush(title, content, 'wechat');
-  // 邮箱推送
-  sendPush(title, content, 'mail');
+  // 微信
+  sendPush('wechat', title, content);
+  // 邮箱
+  sendPush('mail', title, content);
+  // 钉钉
+  sendDingTalk(title, content);
 }
 
-function sendPush(title, content, channel) {
+function sendPush(channel, title, content) {
   const body = { token: PUSHPLUS_TOKEN, title, content, channel };
   const data = JSON.stringify(body);
   const req = http.request({
@@ -110,6 +114,28 @@ function sendPush(title, content, channel) {
     res.on('end', () => console.log('[PushPlus ' + channel + ']', b));
   });
   req.on('error', e => console.error('[PushPlus Error]', e.message));
+  req.write(data);
+  req.end();
+}
+
+function sendDingTalk(title, content) {
+  if (!DING_WEBHOOK) return;
+  // 去除 HTML 标签，钉钉用纯文本
+  const text = title + '\n' + content.replace(/<[^>]+>/g, '');
+  const body = { msgtype: 'text', text: { content: text } };
+  const data = JSON.stringify(body);
+  const url = new URL(DING_WEBHOOK);
+  const req = https.request({
+    hostname: url.hostname,
+    path: url.pathname + url.search,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) }
+  }, res => {
+    let b = '';
+    res.on('data', chunk => b += chunk);
+    res.on('end', () => console.log('[DingTalk]', b));
+  });
+  req.on('error', e => console.error('[DingTalk Error]', e.message));
   req.write(data);
   req.end();
 }
